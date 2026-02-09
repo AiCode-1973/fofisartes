@@ -29,6 +29,34 @@ try {
     ");
     echo "Tabela 'categorias' criada com sucesso!\n";
 
+    // Criar tabela produto_imagens
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS produto_imagens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            produto_id INT NOT NULL,
+            imagem VARCHAR(255) NOT NULL,
+            posicao INT DEFAULT 0,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    echo "Tabela 'produto_imagens' criada com sucesso!\n";
+
+    // Migrar imagens existentes da coluna produtos.imagem para produto_imagens
+    $stmtMigrate = $pdo->query("SELECT id, imagem FROM produtos WHERE imagem IS NOT NULL AND imagem != ''");
+    $existentes = $stmtMigrate->fetchAll();
+    foreach ($existentes as $prod) {
+        $check = $pdo->prepare("SELECT COUNT(*) FROM produto_imagens WHERE produto_id = ? AND imagem = ?");
+        $check->execute([$prod['id'], $prod['imagem']]);
+        if ($check->fetchColumn() == 0) {
+            $ins = $pdo->prepare("INSERT INTO produto_imagens (produto_id, imagem, posicao) VALUES (?, ?, 0)");
+            $ins->execute([$prod['id'], $prod['imagem']]);
+        }
+    }
+    if (count($existentes) > 0) {
+        echo "Migração de " . count($existentes) . " imagem(ns) existente(s) concluída!\n";
+    }
+
     // Inserir categorias padrão
     $stmt = $pdo->query("SELECT COUNT(*) FROM categorias");
     $count = $stmt->fetchColumn();

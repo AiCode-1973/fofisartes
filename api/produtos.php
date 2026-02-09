@@ -7,6 +7,66 @@ if ($method === 'POST' && isset($_POST['_method']) && strtoupper($_POST['_method
 }
 $pdo = getConnection();
 
+// Helper: get images for a product
+function getProductImages($pdo, $produtoId) {
+    $stmt = $pdo->prepare("SELECT id, imagem, posicao FROM produto_imagens WHERE produto_id = ? ORDER BY posicao ASC, id ASC");
+    $stmt->execute([$produtoId]);
+    return $stmt->fetchAll();
+}
+
+// Helper: upload multiple images and insert into produto_imagens
+function uploadAndInsertImages($pdo, $produtoId, $files, $startPosition = 0) {
+    $uploadDir = __DIR__ . '/../uploads/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    $inserted = [];
+    $pos = $startPosition;
+
+    // Normalize $_FILES array for multiple files
+    $fileCount = is_array($files['name']) ? count($files['name']) : 1;
+
+    for ($i = 0; $i < $fileCount; $i++) {
+        $name = is_array($files['name']) ? $files['name'][$i] : $files['name'];
+        $tmpName = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+        $error = is_array($files['error']) ? $files['error'][$i] : $files['error'];
+
+        if ($error !== UPLOAD_ERR_OK) continue;
+
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowed)) continue;
+
+        $filename = uniqid('prod_') . '.' . $ext;
+        $destino = $uploadDir . $filename;
+
+        if (move_uploaded_file($tmpName, $destino)) {
+            $imgPath = 'uploads/' . $filename;
+            $stmt = $pdo->prepare("INSERT INTO produto_imagens (produto_id, imagem, posicao) VALUES (?, ?, ?)");
+            $stmt->execute([$produtoId, $imgPath, $pos]);
+            $inserted[] = $imgPath;
+            $pos++;
+        }
+    }
+    return $inserted;
+}
+
+// Helper: delete image file from disk
+function deleteImageFile($imgPath) {
+    $fullPath = __DIR__ . '/../' . $imgPath;
+    if (file_exists($fullPath)) {
+        unlink($fullPath);
+    }
+}
+
+// Helper: update the legacy imagem column with the first image
+function updateLegacyImage($pdo, $produtoId) {
+    $imgs = getProductImages($pdo, $produtoId);
+    $firstImg = !empty($imgs) ? $imgs[0]['imagem'] : '';
+    $stmt = $pdo->prepare("UPDATE produtos SET imagem = ? WHERE id = ?");
+    $stmt->execute([$firstImg, $produtoId]);
+}
+
 switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
@@ -14,6 +74,7 @@ switch ($method) {
             $stmt->execute([$_GET['id']]);
             $produto = $stmt->fetch();
             if ($produto) {
+                $produto['imagens'] = getProductImages($pdo, $produto['id']);
                 jsonResponse($produto);
             } else {
                 jsonResponse(['erro' => 'Produto não encontrado'], 404);
@@ -28,6 +89,10 @@ switch ($method) {
                 $stmt = $pdo->query($sql);
             }
             $produtos = $stmt->fetchAll();
+            foreach ($produtos as &$p) {
+                $p['imagens'] = getProductImages($pdo, $p['id']);
+            }
+            unset($p);
             jsonResponse($produtos);
         }
         break;
@@ -42,33 +107,23 @@ switch ($method) {
             jsonResponse(['erro' => 'Nome, categoria e valor são obrigatórios'], 400);
         }
 
-        $imagem = '';
+        // Insert product first (imagem column will be updated after)
+        $stmt = $pdo->prepare("INSERT INTO produtos (nome, descricao, categoria, valor, imagem) VALUES (?, ?, ?, ?, '')");
+        $stmt->execute([$nome, $descricao, $categoria, floatval($valor)]);
+        $produtoId = $pdo->lastInsertId();
+
+        // Upload multiple images (field name: imagens[])
+        if (isset($_FILES['imagens'])) {
+            uploadAndInsertImages($pdo, $produtoId, $_FILES['imagens']);
+        }
+        // Backward compat: also accept single 'imagem' field
         if (isset($_FILES['imagem']) && $_FILES['imagem']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/../uploads/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-
-            $ext = strtolower(pathinfo($_FILES['imagem']['name'], PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            if (!in_array($ext, $allowed)) {
-                jsonResponse(['erro' => 'Formato de imagem não permitido. Use: jpg, png, gif ou webp'], 400);
-            }
-
-            $filename = uniqid('prod_') . '.' . $ext;
-            $destino = $uploadDir . $filename;
-
-            if (move_uploaded_file($_FILES['imagem']['tmp_name'], $destino)) {
-                $imagem = 'uploads/' . $filename;
-            } else {
-                jsonResponse(['erro' => 'Erro ao fazer upload da imagem'], 500);
-            }
+            uploadAndInsertImages($pdo, $produtoId, $_FILES['imagem']);
         }
 
-        $stmt = $pdo->prepare("INSERT INTO produtos (nome, descricao, categoria, valor, imagem) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$nome, $descricao, $categoria, floatval($valor), $imagem]);
+        updateLegacyImage($pdo, $produtoId);
 
-        jsonResponse(['sucesso' => true, 'id' => $pdo->lastInsertId(), 'mensagem' => 'Produto cadastrado com sucesso!'], 201);
+        jsonResponse(['sucesso' => true, 'id' => $produtoId, 'mensagem' => 'Produto cadastrado com sucesso!'], 201);
         break;
 
     case 'PUT':
@@ -94,50 +149,50 @@ switch ($method) {
             jsonResponse(['erro' => 'Produto não encontrado'], 404);
         }
 
-        $imagem = $produtoAtual['imagem'];
+        // Remove specific images by their IDs
+        if (isset($_POST['remover_imagem_ids'])) {
+            $idsToRemove = json_decode($_POST['remover_imagem_ids'], true);
+            if (is_array($idsToRemove) && count($idsToRemove) > 0) {
+                $placeholders = implode(',', array_fill(0, count($idsToRemove), '?'));
+                $stmtSel = $pdo->prepare("SELECT imagem FROM produto_imagens WHERE id IN ($placeholders) AND produto_id = ?");
+                $stmtSel->execute(array_merge($idsToRemove, [$id]));
+                $imagensRemover = $stmtSel->fetchAll();
+                foreach ($imagensRemover as $img) {
+                    deleteImageFile($img['imagem']);
+                }
+                $stmtDel = $pdo->prepare("DELETE FROM produto_imagens WHERE id IN ($placeholders) AND produto_id = ?");
+                $stmtDel->execute(array_merge($idsToRemove, [$id]));
+            }
+        }
 
+        // Legacy: remove all images flag
         if (isset($_POST['remover_imagem']) && $_POST['remover_imagem'] === '1') {
-            if (!empty($imagem)) {
-                $imgPath = __DIR__ . '/../' . $imagem;
-                if (file_exists($imgPath)) {
-                    unlink($imgPath);
-                }
+            $allImgs = getProductImages($pdo, $id);
+            foreach ($allImgs as $img) {
+                deleteImageFile($img['imagem']);
             }
-            $imagem = '';
+            $pdo->prepare("DELETE FROM produto_imagens WHERE produto_id = ?")->execute([$id]);
         }
 
+        // Get current max position
+        $stmtMaxPos = $pdo->prepare("SELECT COALESCE(MAX(posicao), -1) FROM produto_imagens WHERE produto_id = ?");
+        $stmtMaxPos->execute([$id]);
+        $maxPos = (int) $stmtMaxPos->fetchColumn() + 1;
+
+        // Upload new images
+        if (isset($_FILES['imagens'])) {
+            uploadAndInsertImages($pdo, $id, $_FILES['imagens'], $maxPos);
+        }
+        // Backward compat: single 'imagem' field
         if (isset($_FILES['imagem']) && $_FILES['imagem']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/../uploads/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-
-            $ext = strtolower(pathinfo($_FILES['imagem']['name'], PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            if (!in_array($ext, $allowed)) {
-                jsonResponse(['erro' => 'Formato de imagem não permitido. Use: jpg, png, gif ou webp'], 400);
-            }
-
-            // Remove old image
-            if (!empty($produtoAtual['imagem'])) {
-                $oldPath = __DIR__ . '/../' . $produtoAtual['imagem'];
-                if (file_exists($oldPath)) {
-                    unlink($oldPath);
-                }
-            }
-
-            $filename = uniqid('prod_') . '.' . $ext;
-            $destino = $uploadDir . $filename;
-
-            if (move_uploaded_file($_FILES['imagem']['tmp_name'], $destino)) {
-                $imagem = 'uploads/' . $filename;
-            } else {
-                jsonResponse(['erro' => 'Erro ao fazer upload da imagem'], 500);
-            }
+            uploadAndInsertImages($pdo, $id, $_FILES['imagem'], $maxPos);
         }
 
-        $stmt = $pdo->prepare("UPDATE produtos SET nome = ?, descricao = ?, categoria = ?, valor = ?, imagem = ? WHERE id = ?");
-        $stmt->execute([$nome, $descricao, $categoria, floatval($valor), $imagem, $id]);
+        // Update product fields
+        $stmt = $pdo->prepare("UPDATE produtos SET nome = ?, descricao = ?, categoria = ?, valor = ? WHERE id = ?");
+        $stmt->execute([$nome, $descricao, $categoria, floatval($valor), $id]);
+
+        updateLegacyImage($pdo, $id);
 
         jsonResponse(['sucesso' => true, 'mensagem' => 'Produto atualizado com sucesso!']);
         break;
@@ -150,17 +205,17 @@ switch ($method) {
             jsonResponse(['erro' => 'ID do produto é obrigatório'], 400);
         }
 
-        $stmt = $pdo->prepare("SELECT imagem FROM produtos WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT id FROM produtos WHERE id = ?");
         $stmt->execute([$id]);
         $produto = $stmt->fetch();
 
         if ($produto) {
-            if (!empty($produto['imagem'])) {
-                $imgPath = __DIR__ . '/../' . $produto['imagem'];
-                if (file_exists($imgPath)) {
-                    unlink($imgPath);
-                }
+            // Delete all image files
+            $allImgs = getProductImages($pdo, $id);
+            foreach ($allImgs as $img) {
+                deleteImageFile($img['imagem']);
             }
+            // ON DELETE CASCADE will remove produto_imagens rows
             $stmt = $pdo->prepare("DELETE FROM produtos WHERE id = ?");
             $stmt->execute([$id]);
             jsonResponse(['sucesso' => true, 'mensagem' => 'Produto excluído com sucesso!']);
