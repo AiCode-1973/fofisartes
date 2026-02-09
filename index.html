@@ -469,14 +469,18 @@
         // --- Products Carousel ---
         function imgFallback(el) {
             var src = el.getAttribute('src');
+            console.log('[DEBUG] imgFallback chamado para:', src);
             var remote = 'https://fofisartes.com.br/';
             if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                console.log('[DEBUG] Tentando URL remota:', remote + src);
                 el.onerror = function() {
+                    console.log('[DEBUG] Falhou também no remoto, mostrando SVG');
                     this.onerror = null;
                     this.parentElement.innerHTML = '<svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
                 };
                 el.src = remote + src;
             } else {
+                console.log('[DEBUG] URL já é absoluta ou data:, mostrando SVG direto');
                 el.onerror = null;
                 el.parentElement.innerHTML = '<svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
             }
@@ -495,9 +499,13 @@
 
         async function loadCarouselProducts() {
             const track = document.getElementById('carousel-track');
+            console.log('[DEBUG] Iniciando loadCarouselProducts, track:', track);
             try {
+                console.log('[DEBUG] Fazendo fetch:', PRODUCTS_API);
                 const res = await fetch(PRODUCTS_API);
+                console.log('[DEBUG] Response status:', res.status);
                 let text = await res.text();
+                console.log('[DEBUG] Response length:', text.length);
                 
                 // Limpa warnings do PHP (procura o primeiro [ ou {)
                 const jsonStart = text.search(/[\[\{]/);
@@ -513,9 +521,14 @@
                     throw e;
                 }
 
-                if (!Array.isArray(produtos)) return;
+                if (!Array.isArray(produtos)) {
+                    console.log('[DEBUG] produtos não é array:', produtos);
+                    return;
+                }
 
+                console.log('[DEBUG] Total de produtos:', produtos.length);
                 if (!produtos.length) {
+                    console.log('[DEBUG] Nenhum produto, mostrando empty state');
                     document.getElementById('carousel-empty').classList.remove('hidden');
                     return;
                 }
@@ -523,6 +536,7 @@
                 track.innerHTML = produtos.map(p => {
                     const imgUrl = (p.imagens && p.imagens.length > 0) ? p.imagens[0].imagem_url : (p.imagem_url || null);
                     const imgCount = (p.imagens && p.imagens.length > 0) ? p.imagens.length : (p.imagem ? 1 : 0);
+                    console.log('[DEBUG] Produto:', p.nome, 'imgUrl:', imgUrl);
                     return `
                     <div class="carousel-slide">
                         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mx-2 hover:shadow-lg transition-shadow h-full flex flex-col">
@@ -544,7 +558,8 @@
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
 
                 carouselTotal = produtos.length;
                 carouselPerView = getPerView();

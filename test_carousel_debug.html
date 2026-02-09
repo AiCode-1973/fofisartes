@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Carousel</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .log { border: 1px solid #ccc; padding: 10px; margin: 10px 0; background: #f5f5f5; }
+        .error { color: red; }
+        .success { color: green; }
+        img { max-width: 200px; border: 2px solid green; margin: 5px; }
+        .failed { border-color: red !important; }
+    </style>
+</head>
+<body>
+    <h1>Debug do Carrossel</h1>
+    <div id="logs"></div>
+    <div id="images"></div>
+    
+    <script>
+        const log = (msg, isError = false) => {
+            const div = document.createElement('div');
+            div.className = 'log ' + (isError ? 'error' : 'success');
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
+            document.getElementById('logs').appendChild(div);
+        };
+
+        async function testCarousel() {
+            log('Iniciando teste do carrossel...');
+            
+            try {
+                log('Fazendo fetch da API: api/produtos.php');
+                const res = await fetch('api/produtos.php');
+                log('Response status: ' + res.status);
+                
+                const text = await res.text();
+                log('Response length: ' + text.length + ' bytes');
+                
+                const jsonStart = text.search(/[\[\{]/);
+                if (jsonStart > 0) {
+                    log('Removendo ' + jsonStart + ' bytes de lixo antes do JSON');
+                    text = text.substring(jsonStart);
+                }
+                
+                const produtos = JSON.parse(text);
+                log('JSON parseado com sucesso. Total de produtos: ' + produtos.length);
+                
+                const imagesDiv = document.getElementById('images');
+                
+                produtos.forEach((p, idx) => {
+                    log(`Produto ${idx + 1}: ${p.nome} (ID: ${p.id})`);
+                    
+                    const imgUrl = (p.imagens && p.imagens.length > 0) ? p.imagens[0].imagem_url : (p.imagem_url || null);
+                    log(`  imagem_url: ${imgUrl}`);
+                    
+                    if (imgUrl) {
+                        const img = document.createElement('img');
+                        img.src = imgUrl;
+                        img.alt = p.nome;
+                        img.onload = () => log(`  ✓ Imagem carregada: ${p.nome}`, false);
+                        img.onerror = () => {
+                            log(`  ✗ ERRO ao carregar imagem: ${imgUrl}`, true);
+                            img.classList.add('failed');
+                        };
+                        imagesDiv.appendChild(img);
+                    } else {
+                        log(`  ⚠ Produto sem imagem`, true);
+                    }
+                });
+                
+            } catch (e) {
+                log('ERRO: ' + e.message, true);
+                console.error(e);
+            }
+        }
+        
+        testCarousel();
+    </script>
+</body>
+</html>
