@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Images</title></head>
+<body>
+<h2>Test 1: Remote direct</h2>
+<img src="https://fofisartes.com.br/uploads/prod_698a36223b9e8.png" style="max-width:300px" onerror="this.alt='ERRO ao carregar'">
+
+<h2>Test 2: Local upload</h2>
+<img src="uploads/prod_698a15cadb9ba.png" style="max-width:300px" onerror="this.alt='ERRO ao carregar'">
+
+<h2>Test 3: API check</h2>
+<div id="result"></div>
+<script>
+fetch('api/produtos.php')
+  .then(r => r.text())
+  .then(t => {
+    document.getElementById('result').innerText = t.substring(0, 500);
+    try {
+      const data = JSON.parse(t);
+      if (data[0] && data[0].imagens && data[0].imagens[0]) {
+        const imgPath = data[0].imagens[0].imagem;
+        const remoteUrl = 'https://fofisartes.com.br/' + imgPath;
+        document.getElementById('result').innerHTML += '<br><br>Image path: ' + imgPath + '<br>Remote URL: ' + remoteUrl + '<br><img src="' + remoteUrl + '" style="max-width:300px">';
+      }
+    } catch(e) { document.getElementById('result').innerText += '\nParse error: ' + e; }
+  })
+  .catch(e => document.getElementById('result').innerText = 'Fetch error: ' + e);
+</script>
+</body>
+</html>
