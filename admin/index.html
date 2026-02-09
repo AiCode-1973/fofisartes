@@ -71,6 +71,10 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     Produtos
                 </button>
+                <button onclick="showSection('categorias')" id="nav-categorias" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-accent/5 hover:text-accent transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                    Categorias
+                </button>
             </nav>
             <div class="p-4 border-t border-gray-100">
                 <a href="../index.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:text-accent transition-all">
@@ -187,6 +191,36 @@
                 </div>
             </section>
 
+            <!-- Section: Categorias -->
+            <section id="section-categorias" class="admin-section hidden fade-in">
+                <div class="flex items-center justify-between mb-8">
+                    <h1 class="text-3xl font-bold">Categorias</h1>
+                </div>
+
+                <!-- Form Nova Categoria -->
+                <div class="max-w-lg mb-8">
+                    <form id="form-categoria" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nova Categoria</label>
+                        <div class="flex gap-3">
+                            <input type="text" id="input-cat-nome" required placeholder="Nome da categoria" class="flex-1 px-5 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all">
+                            <button type="submit" class="px-6 py-3 bg-accent text-white rounded-xl font-bold text-sm hover:scale-105 transition-transform flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Adicionar
+                            </button>
+                        </div>
+                        <div id="cat-form-message" class="hidden mt-3 p-3 rounded-xl text-sm font-medium"></div>
+                    </form>
+                </div>
+
+                <!-- Lista de Categorias -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h2 class="text-xl font-bold mb-4">Todas as Categorias</h2>
+                    <div id="categorias-list" class="space-y-2">
+                        <p class="text-gray-400 text-sm">Carregando...</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- Section: Produtos -->
             <section id="section-produtos" class="admin-section hidden fade-in">
                 <div class="flex items-center justify-between mb-8">
@@ -213,6 +247,36 @@
         </main>
     </div>
 
+    <!-- Edit Category Modal -->
+    <div id="modal-edit-cat" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 fade-in">
+            <h3 class="text-xl font-bold mb-4">Editar Categoria</h3>
+            <input type="text" id="edit-cat-nome" placeholder="Nome da categoria" class="w-full px-5 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all mb-4">
+            <div id="edit-cat-message" class="hidden mb-4 p-3 rounded-xl text-sm font-medium"></div>
+            <div class="flex gap-3">
+                <button onclick="closeEditCatModal()" class="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button onclick="confirmEditCat()" class="flex-1 py-3 bg-accent text-white rounded-xl font-medium text-sm hover:bg-accent/90 transition-colors">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Category Modal -->
+    <div id="modal-delete-cat" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 fade-in">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Excluir Categoria?</h3>
+                <p id="delete-cat-name" class="text-gray-500 text-sm mb-6">Esta acao nao pode ser desfeita.</p>
+                <div class="flex gap-3">
+                    <button onclick="closeDeleteCatModal()" class="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button onclick="confirmDeleteCat()" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium text-sm hover:bg-red-600 transition-colors">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div id="modal-delete" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 fade-in">
@@ -233,6 +297,8 @@
     <script>
         const API_URL = '../api';
         let deleteProductId = null;
+        let editCatId = null;
+        let deleteCatId = null;
 
         // --- Navigation ---
         function showSection(sectionId) {
@@ -254,6 +320,7 @@
             if (sectionId === 'dashboard') loadDashboard();
             if (sectionId === 'produtos') loadProducts();
             if (sectionId === 'cadastrar') loadCategories();
+            if (sectionId === 'categorias') loadCategoriasList();
         }
 
         // --- Load Categories ---
@@ -368,6 +435,155 @@
                 }
             } catch (e) {
                 console.error('Erro ao carregar dashboard:', e);
+            }
+        }
+
+        // --- Categorias CRUD ---
+        async function loadCategoriasList() {
+            try {
+                const res = await fetch(API_URL + '/categorias.php');
+                const categorias = await res.json();
+                const list = document.getElementById('categorias-list');
+
+                if (categorias.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-12">
+                            <svg class="w-16 h-16 mx-auto text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                            <p class="text-gray-400 font-medium">Nenhuma categoria cadastrada</p>
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = categorias.map(cat => `
+                    <div class="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center">
+                                <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                            </div>
+                            <span class="font-semibold text-sm">${cat.nome}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openEditCatModal(${cat.id}, '${cat.nome.replace(/'/g, "\\'")}')" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-accent/5 hover:text-accent hover:border-accent/30 transition-colors" title="Editar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button onclick="openDeleteCatModal(${cat.id}, '${cat.nome.replace(/'/g, "\\'")}')" class="p-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors" title="Excluir">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Erro ao carregar categorias:', e);
+            }
+        }
+
+        // --- Create Category ---
+        document.getElementById('form-categoria').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('input-cat-nome').value.trim();
+            const msgEl = document.getElementById('cat-form-message');
+
+            if (!nome) return;
+
+            try {
+                const res = await fetch(API_URL + '/categorias.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome })
+                });
+                const data = await res.json();
+
+                msgEl.classList.remove('hidden');
+                if (data.sucesso) {
+                    msgEl.className = 'mt-3 p-3 rounded-xl text-sm font-medium bg-green-50 text-green-700 border border-green-200';
+                    msgEl.textContent = data.mensagem;
+                    document.getElementById('input-cat-nome').value = '';
+                    loadCategoriasList();
+                    loadCategories();
+                    setTimeout(() => msgEl.classList.add('hidden'), 3000);
+                } else {
+                    msgEl.className = 'mt-3 p-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200';
+                    msgEl.textContent = data.erro || 'Erro ao criar categoria';
+                }
+            } catch (err) {
+                msgEl.classList.remove('hidden');
+                msgEl.className = 'mt-3 p-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200';
+                msgEl.textContent = 'Erro de conexao com o servidor';
+            }
+        });
+
+        // --- Edit Category Modal ---
+        function openEditCatModal(id, nome) {
+            editCatId = id;
+            document.getElementById('edit-cat-nome').value = nome;
+            document.getElementById('edit-cat-message').classList.add('hidden');
+            document.getElementById('modal-edit-cat').classList.remove('hidden');
+        }
+
+        function closeEditCatModal() {
+            editCatId = null;
+            document.getElementById('modal-edit-cat').classList.add('hidden');
+        }
+
+        async function confirmEditCat() {
+            if (!editCatId) return;
+            const nome = document.getElementById('edit-cat-nome').value.trim();
+            const msgEl = document.getElementById('edit-cat-message');
+
+            if (!nome) {
+                msgEl.classList.remove('hidden');
+                msgEl.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200';
+                msgEl.textContent = 'Nome da categoria é obrigatório';
+                return;
+            }
+
+            try {
+                const res = await fetch(API_URL + '/categorias.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editCatId, nome })
+                });
+                const data = await res.json();
+
+                if (data.sucesso) {
+                    closeEditCatModal();
+                    loadCategoriasList();
+                    loadCategories();
+                } else {
+                    msgEl.classList.remove('hidden');
+                    msgEl.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200';
+                    msgEl.textContent = data.erro || 'Erro ao atualizar categoria';
+                }
+            } catch (err) {
+                msgEl.classList.remove('hidden');
+                msgEl.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200';
+                msgEl.textContent = 'Erro de conexao com o servidor';
+            }
+        }
+
+        // --- Delete Category Modal ---
+        function openDeleteCatModal(id, nome) {
+            deleteCatId = id;
+            document.getElementById('delete-cat-name').textContent = `Excluir "${nome}"? Esta acao nao pode ser desfeita.`;
+            document.getElementById('modal-delete-cat').classList.remove('hidden');
+        }
+
+        function closeDeleteCatModal() {
+            deleteCatId = null;
+            document.getElementById('modal-delete-cat').classList.add('hidden');
+        }
+
+        async function confirmDeleteCat() {
+            if (!deleteCatId) return;
+            try {
+                await fetch(API_URL + '/categorias.php?id=' + deleteCatId, {
+                    method: 'DELETE'
+                });
+                closeDeleteCatModal();
+                loadCategoriasList();
+                loadCategories();
+            } catch (e) {
+                console.error('Erro ao excluir categoria:', e);
             }
         }
 
