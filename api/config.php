@@ -14,7 +14,9 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-define('DB_HOST', '186.209.113.107');
+// Auto-detect environment: production uses localhost for DB
+$isProduction = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'fofisartes.com') !== false);
+define('DB_HOST', $isProduction ? 'localhost' : '186.209.113.107');
 define('DB_NAME', 'dema5738_fofisartes');
 define('DB_USER', 'dema5738_fofisartes');
 define('DB_PASS', 'Dema@1973');

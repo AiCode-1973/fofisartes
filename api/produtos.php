@@ -67,6 +67,37 @@ function updateLegacyImage($pdo, $produtoId) {
     $stmt->execute([$firstImg, $produtoId]);
 }
 
+// Helper: build absolute base URL for this server
+function getBaseUrl() {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // Determine the path to the project root (one level up from /api/)
+    $scriptDir = dirname($_SERVER['SCRIPT_NAME']); // e.g. /fofisartes/api
+    $baseDir = dirname($scriptDir); // e.g. /fofisartes
+    if ($baseDir === '\\' || $baseDir === '/') $baseDir = '';
+    return $scheme . '://' . $host . $baseDir . '/';
+}
+
+// Helper: convert relative image paths to absolute URLs in a product array
+function addImageUrls(&$produto) {
+    $base = getBaseUrl();
+    if (!empty($produto['imagem']) && !str_starts_with($produto['imagem'], 'http')) {
+        $produto['imagem_url'] = $base . $produto['imagem'];
+    } else {
+        $produto['imagem_url'] = $produto['imagem'] ?: '';
+    }
+    if (!empty($produto['imagens'])) {
+        foreach ($produto['imagens'] as &$img) {
+            if (!empty($img['imagem']) && !str_starts_with($img['imagem'], 'http')) {
+                $img['imagem_url'] = $base . $img['imagem'];
+            } else {
+                $img['imagem_url'] = $img['imagem'] ?: '';
+            }
+        }
+        unset($img);
+    }
+}
+
 switch ($method) {
     case 'GET':
         if (isset($_GET['id'])) {
@@ -75,6 +106,7 @@ switch ($method) {
             $produto = $stmt->fetch();
             if ($produto) {
                 $produto['imagens'] = getProductImages($pdo, $produto['id']);
+                addImageUrls($produto);
                 jsonResponse($produto);
             } else {
                 jsonResponse(['erro' => 'Produto não encontrado'], 404);
@@ -91,6 +123,7 @@ switch ($method) {
             $produtos = $stmt->fetchAll();
             foreach ($produtos as &$p) {
                 $p['imagens'] = getProductImages($pdo, $p['id']);
+                addImageUrls($p);
             }
             unset($p);
             jsonResponse($produtos);
