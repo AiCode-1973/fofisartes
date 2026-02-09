@@ -98,19 +98,25 @@ switch ($method) {
         break;
 
     case 'POST':
-        $nome = $_POST['nome'] ?? '';
-        $descricao = $_POST['descricao'] ?? '';
-        $categoria = $_POST['categoria'] ?? '';
+        $nome = sanitizeInput($_POST['nome'] ?? '');
+        $descricao = sanitizeInput($_POST['descricao'] ?? '');
+        $categoria = sanitizeInput($_POST['categoria'] ?? '');
         $valor = $_POST['valor'] ?? 0;
 
-        if (empty($nome) || empty($categoria) || empty($valor)) {
-            jsonResponse(['erro' => 'Nome, categoria e valor são obrigatórios'], 400);
+        if (empty($nome) || empty($categoria)) {
+            jsonResponse(['erro' => 'Nome e categoria são obrigatórios'], 400);
         }
+        
+        $valor = validateNumeric($valor, 'valor');
 
-        // Insert product first (imagem column will be updated after)
-        $stmt = $pdo->prepare("INSERT INTO produtos (nome, descricao, categoria, valor, imagem) VALUES (?, ?, ?, ?, '')");
-        $stmt->execute([$nome, $descricao, $categoria, floatval($valor)]);
-        $produtoId = $pdo->lastInsertId();
+        try {
+            // Insert product first (imagem column will be updated after)
+            $stmt = $pdo->prepare("INSERT INTO produtos (nome, descricao, categoria, valor, imagem) VALUES (?, ?, ?, ?, '')");
+            $stmt->execute([$nome, $descricao, $categoria, $valor]);
+            $produtoId = $pdo->lastInsertId();
+        } catch (PDOException $e) {
+            jsonResponse(['erro' => 'Erro ao cadastrar produto: ' . $e->getMessage()], 500);
+        }
 
         // Upload multiple images (field name: imagens[])
         if (isset($_FILES['imagens'])) {
@@ -129,17 +135,19 @@ switch ($method) {
     case 'PUT':
         // Support multipart via POST with _method=PUT
         $id = $_POST['id'] ?? ($_GET['id'] ?? null);
-        $nome = $_POST['nome'] ?? '';
-        $descricao = $_POST['descricao'] ?? '';
-        $categoria = $_POST['categoria'] ?? '';
+        $nome = sanitizeInput($_POST['nome'] ?? '');
+        $descricao = sanitizeInput($_POST['descricao'] ?? '');
+        $categoria = sanitizeInput($_POST['categoria'] ?? '');
         $valor = $_POST['valor'] ?? 0;
 
-        if (!$id) {
-            jsonResponse(['erro' => 'ID do produto é obrigatório'], 400);
+        if (!$id || !is_numeric($id)) {
+            jsonResponse(['erro' => 'ID do produto é obrigatório e deve ser numérico'], 400);
         }
-        if (empty($nome) || empty($categoria) || empty($valor)) {
-            jsonResponse(['erro' => 'Nome, categoria e valor são obrigatórios'], 400);
+        if (empty($nome) || empty($categoria)) {
+            jsonResponse(['erro' => 'Nome e categoria são obrigatórios'], 400);
         }
+        
+        $valor = validateNumeric($valor, 'valor');
 
         $stmt = $pdo->prepare("SELECT * FROM produtos WHERE id = ?");
         $stmt->execute([$id]);
@@ -189,8 +197,12 @@ switch ($method) {
         }
 
         // Update product fields
-        $stmt = $pdo->prepare("UPDATE produtos SET nome = ?, descricao = ?, categoria = ?, valor = ? WHERE id = ?");
-        $stmt->execute([$nome, $descricao, $categoria, floatval($valor), $id]);
+        try {
+            $stmt = $pdo->prepare("UPDATE produtos SET nome = ?, descricao = ?, categoria = ?, valor = ? WHERE id = ?");
+            $stmt->execute([$nome, $descricao, $categoria, $valor, $id]);
+        } catch (PDOException $e) {
+            jsonResponse(['erro' => 'Erro ao atualizar produto: ' . $e->getMessage()], 500);
+        }
 
         updateLegacyImage($pdo, $id);
 
@@ -201,8 +213,8 @@ switch ($method) {
         $input = json_decode(file_get_contents('php://input'), true);
         $id = $input['id'] ?? ($_GET['id'] ?? null);
 
-        if (!$id) {
-            jsonResponse(['erro' => 'ID do produto é obrigatório'], 400);
+        if (!$id || !is_numeric($id)) {
+            jsonResponse(['erro' => 'ID do produto é obrigatório e deve ser numérico'], 400);
         }
 
         $stmt = $pdo->prepare("SELECT id FROM produtos WHERE id = ?");
@@ -210,15 +222,19 @@ switch ($method) {
         $produto = $stmt->fetch();
 
         if ($produto) {
-            // Delete all image files
-            $allImgs = getProductImages($pdo, $id);
-            foreach ($allImgs as $img) {
-                deleteImageFile($img['imagem']);
+            try {
+                // Delete all image files
+                $allImgs = getProductImages($pdo, $id);
+                foreach ($allImgs as $img) {
+                    deleteImageFile($img['imagem']);
+                }
+                // ON DELETE CASCADE will remove produto_imagens rows
+                $stmt = $pdo->prepare("DELETE FROM produtos WHERE id = ?");
+                $stmt->execute([$id]);
+                jsonResponse(['sucesso' => true, 'mensagem' => 'Produto excluído com sucesso!']);
+            } catch (PDOException $e) {
+                jsonResponse(['erro' => 'Erro ao excluir produto: ' . $e->getMessage()], 500);
             }
-            // ON DELETE CASCADE will remove produto_imagens rows
-            $stmt = $pdo->prepare("DELETE FROM produtos WHERE id = ?");
-            $stmt->execute([$id]);
-            jsonResponse(['sucesso' => true, 'mensagem' => 'Produto excluído com sucesso!']);
         } else {
             jsonResponse(['erro' => 'Produto não encontrado'], 404);
         }

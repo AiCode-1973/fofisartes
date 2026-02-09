@@ -2,12 +2,16 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 86400');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
+
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
 define('DB_HOST', '186.209.113.107');
 define('DB_NAME', 'dema5738_fofisartes');
@@ -36,6 +40,20 @@ function getConnection() {
 
 function jsonResponse($data, $code = 200) {
     http_response_code($code);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit();
+}
+
+function sanitizeInput($data) {
+    if (is_array($data)) {
+        return array_map('sanitizeInput', $data);
+    }
+    return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
+}
+
+function validateNumeric($value, $fieldName = 'valor') {
+    if (!is_numeric($value) || $value < 0) {
+        jsonResponse(['erro' => ucfirst($fieldName) . ' deve ser um número válido'], 400);
+    }
+    return floatval($value);
 }
