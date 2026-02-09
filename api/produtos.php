@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'POST' && isset($_POST['_method']) && strtoupper($_POST['_method']) === 'PUT') {
     $method = 'PUT';
 }
