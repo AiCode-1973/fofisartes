@@ -214,6 +214,30 @@
                 </div>
             </section>
 
+            <!-- Image Gallery Modal -->
+            <div id="gallery-modal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+                <button onclick="closeGallery()" class="absolute top-4 right-4 text-white hover:text-accent transition-colors z-10">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                
+                <button onclick="prevGalleryImage()" class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-accent transition-colors">
+                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                
+                <button onclick="nextGalleryImage()" class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-accent transition-colors">
+                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                
+                <div class="max-w-4xl w-full">
+                    <img id="gallery-image" src="" alt="" class="w-full h-auto max-h-[80vh] object-contain rounded-lg">
+                    <div class="text-center mt-4">
+                        <p id="gallery-counter" class="text-white text-lg font-semibold"></p>
+                        <p id="gallery-product-name" class="text-white/70 text-sm mt-1"></p>
+                    </div>
+                    <div id="gallery-thumbnails" class="flex justify-center gap-2 mt-4 flex-wrap"></div>
+                </div>
+            </div>
+
             <!-- Testimonials (Bento Grid Style) -->
             <section class="py-24 bg-softGray overflow-hidden">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -469,18 +493,14 @@
         // --- Products Carousel ---
         function imgFallback(el) {
             var src = el.getAttribute('src');
-            console.log('[DEBUG] imgFallback chamado para:', src);
             var remote = 'https://fofisartes.com.br/';
             if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-                console.log('[DEBUG] Tentando URL remota:', remote + src);
                 el.onerror = function() {
-                    console.log('[DEBUG] Falhou também no remoto, mostrando SVG');
                     this.onerror = null;
                     this.parentElement.innerHTML = '<svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
                 };
                 el.src = remote + src;
             } else {
-                console.log('[DEBUG] URL já é absoluta ou data:, mostrando SVG direto');
                 el.onerror = null;
                 el.parentElement.innerHTML = '<svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
             }
@@ -499,13 +519,9 @@
 
         async function loadCarouselProducts() {
             const track = document.getElementById('carousel-track');
-            console.log('[DEBUG] Iniciando loadCarouselProducts, track:', track);
             try {
-                console.log('[DEBUG] Fazendo fetch:', PRODUCTS_API);
                 const res = await fetch(PRODUCTS_API);
-                console.log('[DEBUG] Response status:', res.status);
                 let text = await res.text();
-                console.log('[DEBUG] Response length:', text.length);
                 
                 // Limpa warnings do PHP (procura o primeiro [ ou {)
                 const jsonStart = text.search(/[\[\{]/);
@@ -521,14 +537,9 @@
                     throw e;
                 }
 
-                if (!Array.isArray(produtos)) {
-                    console.log('[DEBUG] produtos não é array:', produtos);
-                    return;
-                }
+                if (!Array.isArray(produtos)) return;
 
-                console.log('[DEBUG] Total de produtos:', produtos.length);
                 if (!produtos.length) {
-                    console.log('[DEBUG] Nenhum produto, mostrando empty state');
                     document.getElementById('carousel-empty').classList.remove('hidden');
                     return;
                 }
@@ -536,16 +547,17 @@
                 track.innerHTML = produtos.map(p => {
                     const imgUrl = (p.imagens && p.imagens.length > 0) ? p.imagens[0].imagem_url : (p.imagem_url || null);
                     const imgCount = (p.imagens && p.imagens.length > 0) ? p.imagens.length : (p.imagem ? 1 : 0);
-                    console.log('[DEBUG] Produto:', p.nome, 'imgUrl:', imgUrl);
+                    const allImageUrls = (p.imagens && p.imagens.length > 0) ? p.imagens.map(img => img.imagem_url) : (p.imagem_url ? [p.imagem_url] : []);
+                    const hasMultipleImages = imgCount > 1;
                     return `
                     <div class="carousel-slide">
                         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mx-2 hover:shadow-lg transition-shadow h-full flex flex-col">
-                            <div class="h-56 bg-gray-50 flex items-center justify-center overflow-hidden relative">
+                            <div class="h-56 bg-gray-50 flex items-center justify-center overflow-hidden relative ${hasMultipleImages ? 'cursor-pointer' : ''}" ${hasMultipleImages ? `onclick="openGallery(${JSON.stringify(allImageUrls).replace(/"/g, '&quot;')}, '${p.nome.replace(/'/g, '\\\'')}')"` : ''}>
                                 ${imgUrl
                                     ? `<img src="${imgUrl}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt="${p.nome}" loading="lazy" onerror="imgFallback(this)">`
                                     : `<svg class="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`
                                 }
-                                ${imgCount > 1 ? `<span class="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">${imgCount} fotos</span>` : ''}
+                                ${imgCount > 1 ? `<span class="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm pointer-events-none">${imgCount} fotos</span>` : ''}
                             </div>
                             <div class="p-6 flex flex-col flex-1">
                                 <span class="inline-block self-start px-3 py-1 bg-accent/10 text-accent text-xs font-semibold rounded-full mb-3">${p.categoria}</span>
@@ -648,6 +660,60 @@
                 if (Math.abs(diff) > 50) { diff > 0 ? carouselNext() : carouselPrev(); }
             }, { passive: true });
         })();
+
+        // --- Image Gallery Modal ---
+        let currentGalleryImages = [];
+        let currentGalleryIndex = 0;
+        let currentProductName = '';
+
+        function openGallery(images, productName, startIndex = 0) {
+            currentGalleryImages = images;
+            currentProductName = productName;
+            currentGalleryIndex = startIndex;
+            document.getElementById('gallery-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            updateGalleryDisplay();
+        }
+
+        function closeGallery() {
+            document.getElementById('gallery-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function nextGalleryImage() {
+            currentGalleryIndex = (currentGalleryIndex + 1) % currentGalleryImages.length;
+            updateGalleryDisplay();
+        }
+
+        function prevGalleryImage() {
+            currentGalleryIndex = (currentGalleryIndex - 1 + currentGalleryImages.length) % currentGalleryImages.length;
+            updateGalleryDisplay();
+        }
+
+        function updateGalleryDisplay() {
+            const img = document.getElementById('gallery-image');
+            const counter = document.getElementById('gallery-counter');
+            const productNameEl = document.getElementById('gallery-product-name');
+            const thumbnails = document.getElementById('gallery-thumbnails');
+
+            img.src = currentGalleryImages[currentGalleryIndex];
+            counter.textContent = `${currentGalleryIndex + 1} / ${currentGalleryImages.length}`;
+            productNameEl.textContent = currentProductName;
+
+            thumbnails.innerHTML = currentGalleryImages.map((imgUrl, idx) => `
+                <img src="${imgUrl}" 
+                     onclick="currentGalleryIndex = ${idx}; updateGalleryDisplay();"
+                     class="w-16 h-16 object-cover rounded cursor-pointer border-2 ${idx === currentGalleryIndex ? 'border-accent' : 'border-transparent'} hover:border-accent/50 transition-colors"
+                     alt="Miniatura ${idx + 1}">
+            `).join('');
+        }
+
+        // Close gallery with ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeGallery();
+            if (e.key === 'ArrowLeft') prevGalleryImage();
+            if (e.key === 'ArrowRight') nextGalleryImage();
+        });
 
         // Start loading products after all code is defined
         loadCarouselProducts();
