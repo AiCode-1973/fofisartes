@@ -242,22 +242,8 @@
             <section class="py-24 bg-softGray overflow-hidden">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <h2 class="text-3xl font-bold mb-12 text-center">O que nossos clientes dizem</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                            <div class="flex text-yellow-400 mb-4">★★★★★</div>
-                            <p class="text-gray-600 italic mb-6">"Fiquei encantada com o topo de bolo. Ficou exatamente como eu imaginei, cada detalhe perfeito!"</p>
-                            <div class="font-bold">Ana Luiza M.</div>
-                        </div>
-                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 md:translate-y-6">
-                            <div class="flex text-yellow-400 mb-4">★★★★★</div>
-                            <p class="text-gray-600 italic mb-6">"Serviço rápido e de extrema qualidade. Meus cartões de visita ficaram excelentes."</p>
-                            <div class="font-bold">Carlos Eduardo</div>
-                        </div>
-                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                            <div class="flex text-yellow-400 mb-4">★★★★★</div>
-                            <p class="text-gray-600 italic mb-6">"Os mimos personalizados para minha empresa foram um sucesso total com os clientes."</p>
-                            <div class="font-bold">Marina Santos</div>
-                        </div>
+                    <div id="testimonials-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <p class="text-gray-400 text-center col-span-3">Carregando depoimentos...</p>
                     </div>
                 </div>
             </section>
@@ -715,8 +701,40 @@
             if (e.key === 'ArrowRight') nextGalleryImage();
         });
 
-        // Start loading products after all code is defined
+        // --- Load Testimonials ---
+        async function loadTestimonials() {
+            try {
+                const res = await fetch('api/depoimentos.php?ativos=true');
+                const depoimentos = await res.json();
+                
+                const container = document.getElementById('testimonials-container');
+                
+                if (!depoimentos || depoimentos.length === 0) {
+                    container.innerHTML = '<p class="text-gray-400 text-center col-span-3">Nenhum depoimento disponível no momento.</p>';
+                    return;
+                }
+                
+                container.innerHTML = depoimentos.map((d, idx) => {
+                    const stars = '★'.repeat(d.estrelas) + '☆'.repeat(5 - d.estrelas);
+                    const translateClass = (idx % 3 === 1) ? 'md:translate-y-6' : '';
+                    
+                    return `
+                        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 ${translateClass}">
+                            <div class="flex text-yellow-400 mb-4">${stars}</div>
+                            <p class="text-gray-600 italic mb-6">"${d.depoimento}"</p>
+                            <div class="font-bold">${d.nome}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Erro ao carregar depoimentos:', e);
+                document.getElementById('testimonials-container').innerHTML = '<p class="text-gray-400 text-center col-span-3">Erro ao carregar depoimentos.</p>';
+            }
+        }
+
+        // Start loading products and testimonials after all code is defined
         loadCarouselProducts();
+        loadTestimonials();
     </script>
 </body>
 </html>
