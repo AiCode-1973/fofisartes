@@ -61,3 +61,15 @@ function validateNumeric($value, $fieldName = 'valor') {
     }
     return floatval($value);
 }
+
+function getJsonInput() {
+    $input = file_get_contents('php://input');
+    return json_decode($input, true) ?: [];
+}
+
+function sanitize($value) {
+    if (is_array($value)) {
+        return array_map('sanitize', $value);
+    }
+    return htmlspecialchars(trim($value), ENT_QUOTES, 'UTF-8');
+}
